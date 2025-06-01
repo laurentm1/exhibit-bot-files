@@ -1,0 +1,215 @@
+{
+  "name": "Fireflies_V1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fireflies/call-finished",
+        "options": {}
+      },
+      "id": "7c64cd8f-3e07-4735-9f0d-058e8cae5b87",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        60,
+        80
+      ],
+      "webhookId": "63ec3761-d9b8-4943-980b-e7fa8a5e3c98"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\t\n    \"meeting_id\": \"{{$json[\"body\"][\"meetingId\"]}}\"\n}",
+        "options": {}
+      },
+      "id": "2f07b6e4-dcab-4388-b745-70bf5fa105d9",
+      "name": "Insert Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        360,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "si8CKQbxIHh3zEE5",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.fireflies.ai/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query Transcript($id: String!) { transcript(id: $id) { id title dateString audio_url sentences { speaker_name raw_text } participants meeting_attendees { displayName email } } }\",\n  \"variables\": {\n    \"id\": \"={{ $node[\"Webhook\"].json[\"body\"][\"meetingId\"] }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "a1fdc8d8-6b16-427b-8795-9b6445ab04b7",
+      "name": "Fetch Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        660,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jtgb0RZmnsAxC6Po",
+          "name": "Fireflies API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const meetingId = $node[\"Webhook\"].json.body.meetingId;\nconst t = $node[\"Fetch Transcript\"].json.data.transcript;\nreturn {\n  meeting_id: meetingId,\n  meeting_title: t.title,\n  transcript_text: t.sentence.map(s => s.raw_text).join(\" \"),\n  participants: t.participants,\n  timestamp: t.date\n};"
+      },
+      "id": "100efe1a-b475-4b4a-a4cc-cc8b2ea7d28f",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [
+        960,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls?on_conflict=meeting_id",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "d05ac90c-1fdd-4854-a45f-daaa02415872",
+      "name": "Upsert Call Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1260,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "si8CKQbxIHh3zEE5",
+          "name": "Supabase Service Role"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-render-6chm.onrender.com",
+            "user-agent": "PostmanRuntime/7.44.0",
+            "content-length": "119",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "158.247.77.182",
+            "cf-ipcountry": "US",
+            "cf-ray": "948fdb6439c63484-PHX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "postman-token": "128f7b5c-f7cb-4321-8e43-b5244ce20733",
+            "render-proxy-ttl": "4",
+            "rndr-id": "11142ef0-efaf-4aec",
+            "true-client-ip": "158.247.77.182",
+            "x-forwarded-for": "158.247.77.182, 104.23.195.89",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1748792924933737"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "meetingId": "abc123",
+            "eventType": "TRANSCRIPTION_COMPLETE",
+            "clientReferenceId": "local-test"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/fireflies/call-finished",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Insert Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Call": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Transcript": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "Upsert Call Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f4409d15-14fd-4c92-be50-61ce5fa67cab",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "93cdb7f2ddfdcee588207b3de525120d68ca5112158f57f47b9c0928cd23d1e2"
+  },
+  "id": "BECRwlQ3KPvqgSje",
+  "tags": []
+}
