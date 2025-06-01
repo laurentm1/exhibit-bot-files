@@ -1,0 +1,113 @@
+{
+  "name": "Fireflies_V0",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fireflies/call-finished",
+        "options": {}
+      },
+      "id": "c52fbf55-ef39-455f-890f-160e37d9d68d",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "63ec3761-d9b8-4943-980b-e7fa8a5e3c98"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apiKey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2Y2N5dWFpcHhkYm5qenN0a2dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODE5MjE3OCwiZXhwIjoyMDYzNzY4MTc4fQ.KLqifl3Epltzjc_xKMVZzp0Ckjc2CIsQziPNiOPNgxI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\t\n    \"meeting_id\": \"{{$json[\"body\"][\"meetingId\"]}}\"\n}",
+        "options": {}
+      },
+      "id": "f19b433f-6db0-430d-af44-c0464cd99da7",
+      "name": "Insert Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        300,
+        0
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-render-6chm.onrender.com",
+            "user-agent": "PostmanRuntime/7.44.0",
+            "content-length": "119",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "158.247.77.182",
+            "cf-ipcountry": "US",
+            "cf-ray": "948fdb6439c63484-PHX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "postman-token": "128f7b5c-f7cb-4321-8e43-b5244ce20733",
+            "render-proxy-ttl": "4",
+            "rndr-id": "11142ef0-efaf-4aec",
+            "true-client-ip": "158.247.77.182",
+            "x-forwarded-for": "158.247.77.182, 104.23.195.89",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1748792924933737"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "meetingId": "abc123",
+            "eventType": "TRANSCRIPTION_COMPLETE",
+            "clientReferenceId": "local-test"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/fireflies/call-finished",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Insert Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "ac672e5d-ca48-44ce-8410-1a3bfcdcc5d5",
+  "meta": {
+    "instanceId": "93cdb7f2ddfdcee588207b3de525120d68ca5112158f57f47b9c0928cd23d1e2"
+  },
+  "id": "7MpoHQdGErRiPZFJ",
+  "tags": []
+}
