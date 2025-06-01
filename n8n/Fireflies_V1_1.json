@@ -1,0 +1,334 @@
+{
+  "name": "Fireflies_V1.1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fireflies/call-finished",
+        "options": {}
+      },
+      "id": "24805e43-3214-442c-b07e-466f8edf33da",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -220
+      ],
+      "webhookId": "63ec3761-d9b8-4943-980b-e7fa8a5e3c98"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\t\n    \"meeting_id\": \"{{$json[\"body\"][\"meetingId\"]}}\"\n}",
+        "options": {}
+      },
+      "id": "3d1c5b9b-110d-4f42-88c5-4ba0507899e9",
+      "name": "Insert Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        640,
+        -340
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "si8CKQbxIHh3zEE5",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.fireflies.ai/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query Transcript($id: String!) { transcript(id: $id) { id title dateString audio_url sentences { speaker_name raw_text } participants meeting_attendees { displayName email } } }\",\n  \"variables\": {\n    \"id\": \"={{ $node[\"Webhook\"].json[\"body\"][\"meetingId\"] }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "54331f3f-b544-416c-808f-8c8b20a363be",
+      "name": "Fetch Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        900,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jtgb0RZmnsAxC6Po",
+          "name": "Fireflies API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const meetingId = $node[\"Webhook\"].json.body.meetingId;\nconst t = $node[\"Fetch Transcript\"].json.data.transcript;\nreturn {\n  meeting_id: meetingId,\n  meeting_title: t.title,\n  transcript_text: t.sentences.map(s => s.raw_text).join(\" \"),\n  participants: t.participants,\n  timestamp: new Date(t.dateString).toISOString()\n};"
+      },
+      "id": "8341bfad-3a11-454f-ae55-129207cb5b1f",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls?on_conflict=meeting_id",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "fe8209b3-3c39-4eb6-8281-fc87b478a92b",
+      "name": "Upsert Call Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "si8CKQbxIHh3zEE5",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls?select=id&meeting_id=eq.={{ $node[\"Webhook\"].json[\"body\"][\"meetingId\"] }}&limit=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "f6676b3a-38fe-40c5-bddc-85c2585e865f",
+      "name": "Check Call Exists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        200,
+        -220
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "si8CKQbxIHh3zEE5",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "c13b1043-553b-40dd-abc3-2826056cdcc8",
+      "name": "Is New Call?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -220
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -20
+      ],
+      "id": "f7840b58-805b-4b26-8f7a-167e2c69d338",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "toRecipients": "laurent@exhib-it.com",
+        "subject": "=⚠️ {{ $workflow.name }}: {{ $json[\"execution\"][\"lastNodeExecuted\"] }} failed",
+        "bodyContent": "=<h2>❗ Workflow “{{ $workflow.name }}” failed</h2>\n\n<p><b>Node:</b> {{ $json[\"execution\"][\"lastNodeExecuted\"] }}</p>\n<p><b>Message:</b> {{ $json[\"execution\"][\"error\"][\"message\"] }}</p>\n<p><b>Execution ID:</b> {{ $json[\"execution\"][\"id\"] }}</p>\n\n<pre style=\"font-family:monospace\">{{ $json[\"execution\"][\"error\"][\"stack\"] }}</pre>\n",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        -20
+      ],
+      "id": "1b8cac63-ba24-45a3-bba8-e66b65cda871",
+      "name": "Microsoft Outlook",
+      "webhookId": "db250edc-8061-485e-92f0-8e973d57b57b",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "lOGrTba5BSYt9TLB",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-render-6chm.onrender.com",
+            "user-agent": "PostmanRuntime/7.44.0",
+            "content-length": "119",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "158.247.77.182",
+            "cf-ipcountry": "US",
+            "cf-ray": "948fdb6439c63484-PHX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "postman-token": "128f7b5c-f7cb-4321-8e43-b5244ce20733",
+            "render-proxy-ttl": "4",
+            "rndr-id": "11142ef0-efaf-4aec",
+            "true-client-ip": "158.247.77.182",
+            "x-forwarded-for": "158.247.77.182, 104.23.195.89",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1748792924933737"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "meetingId": "abc123",
+            "eventType": "TRANSCRIPTION_COMPLETE",
+            "clientReferenceId": "local-test"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/fireflies/call-finished",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Call Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Call Exists": {
+      "main": [
+        [
+          {
+            "node": "Is New Call?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Call?": {
+      "main": [
+        [
+          {
+            "node": "Insert Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Call": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Transcript": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "Upsert Call Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Microsoft Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d2227784-df91-4b67-8fa8-1e95809dd316",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "93cdb7f2ddfdcee588207b3de525120d68ca5112158f57f47b9c0928cd23d1e2"
+  },
+  "id": "7XQ293EeziJE5pRM",
+  "tags": []
+}
