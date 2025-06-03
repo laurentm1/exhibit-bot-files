@@ -1,0 +1,245 @@
+{
+  "name": "Fireflies_V1.2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fireflies/call-finished",
+        "options": {}
+      },
+      "id": "952fd74f-a4cc-48dc-a909-234f001f69e3",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -680,
+        120
+      ],
+      "webhookId": "82cf567a-19c0-4828-ab51-7e05734108b0"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.fireflies.ai/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query Transcript($id: String!) { transcript(id: $id) { id title dateString duration meeting_link host_email organizer_email participants meeting_attendees { displayName email } meeting_info { fred_joined silent_meeting summary_status } transcript_url audio_url video_url summary { short_summary keywords action_items } analytics { sentiments { positive_pct neutral_pct negative_pct } } } }\",\n  \"variables\": {\n    \"id\": \"01JWSEATEEGZWSCW3979JFRMPF\"\n  }\n}",
+        "options": {}
+      },
+      "id": "cab2977e-5c2b-46ec-84a1-354c278091b9",
+      "name": "Fetch Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -420,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "w2A8RSN73hL8WegK",
+          "name": "Fireflies"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Grab the transcript object Fireflies just returned\nconst t = $node[\"Fetch Transcript\"].json.data.transcript;\n\n// Fireflies’ `id` works as *both* transcript_id and meeting_id\nconst id = t.id;\n\nreturn {\n  // Identity\n  transcript_id: id,\n\n  // Basic metadata\n  meeting_title: t.title ?? null,\n  date_time:     new Date(t.dateString).toISOString(),\n  duration:  t.duration ?? null,\n  organizer_email: t.organizer_email       ?? null,\n  host_email:      t.host_email            ?? null,\n\n  // People\n  meeting_attendees:  t.meeting_attendees   ?? null,   // richer [{displayName,email}, …]\n\n  // Links & media\n  meeting_link:   t.meeting_link   ?? null,\n  transcript_url: t.transcript_url ?? null,\n  audio_url:      t.audio_url      ?? null,\n  video_url:      t.video_url      ?? null,\n\n  // Flags & status\n  fred_joined:    t.meeting_info?.fred_joined    ?? null,\n  silent_meeting: t.meeting_info?.silent_meeting ?? null,\n  summary_status: t.meeting_info?.summary_status ?? null,\n\n  // Rich AI blocks (store as-is; they’re JSON already)\n  summary:   t.summary   ?? null,\n  analytics: t.analytics ?? null\n};\n"
+      },
+      "id": "106283e2-4993-4f43-9e76-b586d70fc014",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [
+        -180,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls?on_conflict=transcript_id",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates"
+            },
+            {
+              "name": "Accept-Profile",
+              "value": "api"
+            },
+            {
+              "name": "Content-Profile",
+              "value": "api"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "cc91deee-870c-4338-97fb-622976d30297",
+      "name": "Upsert Call Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        80,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "oK6XKzowIdSQnLbU",
+          "name": "Supabase"
+        },
+        "httpCustomAuth": {
+          "id": "RRI3zW2BLouBe8r1",
+          "name": "Supabase Full"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        320
+      ],
+      "id": "3895eca8-9f3a-45c0-a216-cfe3437b46a5",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "toRecipients": "laurent@exhib-it.com",
+        "subject": "=⚠️ {{ $workflow.name }}: {{ $json[\"execution\"][\"lastNodeExecuted\"] }} failed",
+        "bodyContent": "=<h2>❗ Workflow “{{ $workflow.name }}” failed</h2>\n\n<p><b>Node:</b> {{ $json[\"execution\"][\"lastNodeExecuted\"] }}</p>\n<p><b>Message:</b> {{ $json[\"execution\"][\"error\"][\"message\"] }}</p>\n<p><b>Execution ID:</b> {{ $json[\"execution\"][\"id\"] }}</p>\n\n<pre style=\"font-family:monospace\">{{ $json[\"execution\"][\"error\"][\"stack\"] }}</pre>\n",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        -420,
+        320
+      ],
+      "id": "5b34a2f8-a390-460b-8188-09b7990db971",
+      "name": "Microsoft Outlook",
+      "webhookId": "38103518-9ad9-44bf-8a66-32abdf9ddf81",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "6EOHnH4B7mF7nDXU",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-render-6chm.onrender.com",
+            "user-agent": "PostmanRuntime/7.44.0",
+            "content-length": "98",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "158.247.77.182",
+            "cf-ipcountry": "US",
+            "cf-ray": "94a11c169b1347a7-PDX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "postman-token": "8839ccf3-02fd-412a-a975-bec2022d8655",
+            "render-proxy-ttl": "4",
+            "rndr-id": "d9b197e6-558a-46fd",
+            "true-client-ip": "158.247.77.182",
+            "x-forwarded-for": "158.247.77.182, 104.23.160.37",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1748973832785230"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "meetingId": "01JWSEATEEGZWSCW3979JFRMPF",
+            "eventType": "Transcription completed"
+          },
+          "webhookUrl": "http://localhost:5678/webhook/fireflies/call-finished",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Transcript": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "Upsert Call Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Microsoft Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d1de554a-ede2-4cc5-8234-672940c0e75d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0ddd280bba6afbb32c0d5b532fc75594b5dec87542359ad8e11bf9c766a423e4"
+  },
+  "id": "w16n28AtHuq5drHE",
+  "tags": []
+}
