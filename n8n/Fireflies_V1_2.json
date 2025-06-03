@@ -68,7 +68,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/calls?on_conflict=transcript_id",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/transcripts?on_conflict=transcript_id",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
