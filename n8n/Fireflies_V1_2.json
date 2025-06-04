@@ -34,7 +34,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"query\": \"query Transcript($id: String!) { transcript(id: $id) { id title dateString duration meeting_link host_email organizer_email participants meeting_attendees { displayName email } meeting_info { fred_joined silent_meeting summary_status } transcript_url audio_url video_url summary { short_summary keywords action_items } analytics { sentiments { positive_pct neutral_pct negative_pct } } } }\",\n  \"variables\": {\n    \"id\": \"01JWSEATEEGZWSCW3979JFRMPF\"\n  }\n}",
+        "jsonBody": "={\n  \"query\": \"query Transcript($id: String!) { transcript(id: $id) { id title dateString duration meeting_link host_email organizer_email meeting_attendees { displayName email } meeting_info { fred_joined silent_meeting summary_status } transcript_url audio_url video_url summary { short_summary keywords action_items } analytics { sentiments { positive_pct neutral_pct negative_pct } } } }\",\n  \"variables\": {\n    \"id\": \"{{ $json['body']['meetingId'] }}\"\n  }\n}",
         "options": {}
       },
       "id": "cab2977e-5c2b-46ec-84a1-354c278091b9",
@@ -235,7 +235,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "d1de554a-ede2-4cc5-8234-672940c0e75d",
+  "versionId": "c6cc0941-55cf-4ccb-b8ec-79a2efe07d63",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0ddd280bba6afbb32c0d5b532fc75594b5dec87542359ad8e11bf9c766a423e4"
