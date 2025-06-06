@@ -1,0 +1,301 @@
+{
+  "name": "Fireflies_Calls_Ingestion_V1_4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fireflies/call-finished",
+        "options": {}
+      },
+      "id": "c0f2ef04-0367-40e8-821f-9dd90cf391e6",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -80
+      ],
+      "webhookId": "79be68c4-b7e5-411d-be72-7d6e8729476a"
+    },
+    {
+      "parameters": {
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/fireflies_user_keys",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "user_email",
+              "value": "=eq.{{$json[\"query\"][\"uid\"]}}"
+            },
+            {
+              "name": "select",
+              "value": "api_key"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept-Profile",
+              "value": "api"
+            },
+            {
+              "name": "Content-Profile",
+              "value": "api"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "78043b4e-6217-4ce8-8373-6096240c3213",
+      "name": "Lookup User Key",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        240,
+        -80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "oK6XKzowIdSQnLbU",
+          "name": "Supabase"
+        },
+        "httpCustomAuth": {
+          "id": "RRI3zW2BLouBe8r1",
+          "name": "Supabase Full"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.fireflies.ai/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ \"Bearer \" + $json[\"api_key\"] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query Transcript($id: String!) { transcript(id: $id) { id title dateString duration meeting_link host_email organizer_email meeting_attendees { displayName email } meeting_info { fred_joined silent_meeting summary_status } transcript_url audio_url video_url summary { short_summary keywords action_items } analytics { sentiments { positive_pct neutral_pct negative_pct } } sentences { raw_text } } }\",\n  \"variables\": {\n    \"id\": \"{{ $node['Webhook'].json['body']['meetingId'] }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "74d64b1d-b42f-4422-b448-95fc70dc9906",
+      "name": "Fetch Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        480,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const t = $node[\"Fetch Transcript\"].json.data.transcript;\nconst fullText = $node[\"Build Transcript Text\"].json.transcript_text ?? null;\nconst id = t.id;\n\nreturn {\n  transcript_id: id,\n  meeting_title: t.title ?? null,\n  date_time: new Date(t.dateString).toISOString(),\n  duration: t.duration ?? null,\n  organizer_email: t.organizer_email ?? null,\n  host_email: t.host_email ?? null,\n  meeting_attendees: t.meeting_attendees ?? null,\n  meeting_link: t.meeting_link ?? null,\n  transcript_url: t.transcript_url ?? null,\n  audio_url: t.audio_url ?? null,\n  video_url: t.video_url ?? null,\n  fred_joined: t.meeting_info?.fred_joined ?? null,\n  silent_meeting: t.meeting_info?.silent_meeting ?? null,\n  summary_status: t.meeting_info?.summary_status ?? null,\n  summary: t.summary ?? null,\n  analytics: t.analytics ?? null,\n  transcript_text: fullText\n};"
+      },
+      "id": "6d8f9ea0-6e5c-473f-85b4-1451a4b07cbb",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [
+        920,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/transcripts?on_conflict=transcript_id",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates"
+            },
+            {
+              "name": "Accept-Profile",
+              "value": "api"
+            },
+            {
+              "name": "Content-Profile",
+              "value": "api"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "68ec4569-9eaf-4a27-b383-f7686057bea6",
+      "name": "Upsert Call Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1160,
+        -80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "oK6XKzowIdSQnLbU",
+          "name": "Supabase"
+        },
+        "httpCustomAuth": {
+          "id": "RRI3zW2BLouBe8r1",
+          "name": "Supabase Full"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        120
+      ],
+      "id": "6f42b498-58d2-4a62-b3a3-21e4468f8e3e",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "toRecipients": "laurent@exhib-it.com",
+        "subject": "=⚠️ {{ $workflow.name }}: {{ $json[\"execution\"][\"lastNodeExecuted\"] }} failed",
+        "bodyContent": "=<h2>❗ Workflow “{{ $workflow.name }}” failed</h2><p><b>Node:</b> {{ $json[\"execution\"][\"lastNodeExecuted\"] }}</p><p><b>Message:</b> {{ $json[\"execution\"][\"error\"][\"message\"] }}</p><p><b>Execution ID:</b> {{ $json[\"execution\"][\"id\"] }}</p><pre style=\"font-family:monospace\">{{ $json[\"execution\"][\"error\"][\"stack\"] }}</pre>",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        120
+      ],
+      "id": "cdc93f53-9b3b-4e42-b1a8-47995a825f00",
+      "name": "Microsoft Outlook",
+      "webhookId": "055f8436-1034-4542-8f10-2a74096e8d7f",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "6EOHnH4B7mF7nDXU",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Combine sentences array into a single string\nconst sentences = $node[\"Fetch Transcript\"].json.data.transcript.sentences;\nconst fullText  = sentences.map(s => s.raw_text).join(' ');\n\nreturn {\n  transcript_id: $node[\"Fetch Transcript\"].json.data.transcript.id,\n  transcript_text: fullText,\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        -80
+      ],
+      "id": "519212ce-2c9e-4ac0-81fe-5663409e5784",
+      "name": "Build Transcript Text"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lookup User Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup User Key": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Transcript": {
+      "main": [
+        [
+          {
+            "node": "Build Transcript Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "Upsert Call Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Microsoft Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Transcript Text": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2fb48e2d-3a41-4d53-b2b3-a6782b372c8a",
+  "meta": {
+    "instanceId": "0ddd280bba6afbb32c0d5b532fc75594b5dec87542359ad8e11bf9c766a423e4"
+  },
+  "id": "ZjuPOo7S2RSo1Bsc",
+  "tags": []
+}
