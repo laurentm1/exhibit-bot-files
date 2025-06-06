@@ -1,0 +1,500 @@
+{
+  "name": "Embed_On_Classify",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "transcripts/embed-on-classify",
+        "options": {}
+      },
+      "id": "e1e15e69-abf5-4be0-bc1f-70d14ef70d02",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -200
+      ],
+      "webhookId": "REPLACE_ME"
+    },
+    {
+      "parameters": {
+        "functionCode": "const CHUNK_SIZE = 1000;\nconst txt = $json[\"text\"];\nif (!txt) throw new Error(\"No transcript_text returned\");\nconst words = txt.split(/\\s+/);\nlet chunks = [];\nfor (let i = 0; i < words.length; i += CHUNK_SIZE) {\n  chunks.push(words.slice(i, i + CHUNK_SIZE).join(\" \"));\n}\nreturn chunks.map((chunk, idx) => ({ transcript_id: $node[\"Webhook\"].json.body.transcript_id, chunk_index: idx, text: chunk }));"
+      },
+      "id": "0e821bf7-893e-43f8-9b89-f4b18abe2a28",
+      "name": "Split Text",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        580,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "6d495cba-5008-4345-871d-1f3376bd81ee",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "toRecipients": "laurent@exhib-it.com",
+        "subject": "=⚠️ {{ $workflow.name }}: {{ $json[\"execution\"][\"lastNodeExecuted\"] }} failed",
+        "bodyContent": "=<h2>❗ Workflow “{{ $workflow.name }}” failed</h2><p><b>Node:</b> {{ $json[\"execution\"][\"lastNodeExecuted\"] }}</p><p><b>Message:</b> {{ $json[\"execution\"][\"error\"][\"message\"] }}</p><p><b>Execution ID:</b> {{ $json[\"execution\"][\"id\"] }}</p><pre style=\"font-family:monospace\">{{ $json[\"execution\"][\"error\"][\"stack\"] }}</pre>",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "id": "e968cc39-1cd2-4876-bd76-1c7d9453bfce",
+      "name": "Microsoft Outlook",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        160,
+        0
+      ],
+      "webhookId": "be644d79-bfa4-4c1e-8863-fad825a32c5e",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "6EOHnH4B7mF7nDXU",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        220
+      ],
+      "id": "c12e93e3-c201-40ea-bd8d-8866f01f088f",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "p1iBxc5lx7jC5Myj",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        680,
+        220
+      ],
+      "id": "738b187b-4155-432e-9bf3-19c3847dfb20",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "chunkSize": 100000,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        700,
+        340
+      ],
+      "id": "2c15a9b1-1aa5-4e1d-a4db-1a27061aa8a0",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const text = $json[\"transcript_text\"] || \"\";\nreturn {\n  transcript_id: $node[\"Webhook\"].json.body.transcript_id,\n  text,\n  chunk_index: 0\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        -200
+      ],
+      "id": "8ce098aa-152d-4999-a094-4f31a150d60f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "transcript_embeddings",
+          "mode": "list",
+          "cachedResultName": "transcript_embeddings"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.2,
+      "position": [
+        540,
+        60
+      ],
+      "id": "0ae6e140-1fc3-4e8c-aded-906d62ae58c3",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "2hovQVB9C78Q3ltO",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/transcripts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "transcript_id",
+              "value": "=eq.{{$json.body.transcript_id}}"
+            },
+            {
+              "name": "select",
+              "value": "transcript_text"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept-Profile",
+              "value": "api"
+            },
+            {
+              "name": "Content-Profile",
+              "value": "api"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"query\": \"query Transcript($id:String!){ transcript(id:$id){ id full_text } }\", \"variables\": { \"id\": \"={{ $json.body.transcript_id }}\" } }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        -200
+      ],
+      "id": "efc4bf91-2676-4ccb-a565-4e4c04524e37",
+      "name": "Fetch Transcript",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "oK6XKzowIdSQnLbU",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vvccyuaipxdbnjzstkgm.supabase.co/rest/v1/transcript_embeddings?on_conflict=transcript_id,chunk_index",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates"
+            },
+            {
+              "name": "Accept-Profile",
+              "value": "api"
+            },
+            {
+              "name": "Content-Profile",
+              "value": "api"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2Y2N5dWFpcHhkYm5qenN0a2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxOTIxNzgsImV4cCI6MjA2Mzc2ODE3OH0.fdjF-Vm5-VY80BspiZNEjA52x5u8A09-JhWQImMjMlo"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2Y2N5dWFpcHhkYm5qenN0a2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxOTIxNzgsImV4cCI6MjA2Mzc2ODE3OH0.fdjF-Vm5-VY80BspiZNEjA52x5u8A09-JhWQImMjMlo"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        -220
+      ],
+      "id": "ff6fb334-b977-448f-834f-85ebccd0c060",
+      "name": "Upsert Embeddings",
+      "notes": "Using anon key..."
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  transcript_id: $node[\"SplitInBatches\"].json.transcript_id,\n  chunk_index:   $node[\"SplitInBatches\"].json.chunk_index,\n  chunk_text:    $node[\"SplitInBatches\"].json.text,\n  embedding:     $node[\"OpenAIEmbeddings\"].json.data[0].embedding,\n  embedded_at:   new Date().toISOString(),\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        -220
+      ],
+      "id": "db019953-addf-4855-b369-dbb262de5fe5",
+      "name": "Merge Metadata + Embeddings"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        800,
+        -200
+      ],
+      "id": "35009f43-b713-4c00-b92b-94e6f3b7b4dc",
+      "name": "SplitInBatches"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"text-embedding-3-small\",\n  \"input\": \"{{ $json.text }}\" \n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        -220
+      ],
+      "id": "a66952e4-e1b7-46a1-806d-98196c7404d3",
+      "name": "OpenAIEmbeddings",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "6dp0FJ47UgzZ6z8P",
+          "name": "OpenAI"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-render-6chm.onrender.com",
+            "user-agent": "PostmanRuntime/7.44.0",
+            "content-length": "56",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "158.247.77.182",
+            "cf-ipcountry": "US",
+            "cf-ray": "94b9fb4ed846d430-PDX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "postman-token": "f1adb27b-fbf6-46bc-9f6b-1f7929e34a3c",
+            "referer": "http://n8n-render-6chm.onrender.com/webhook/transcripts/embed-on-classify",
+            "render-proxy-ttl": "4",
+            "rndr-id": "812991ea-a7ac-4e12",
+            "true-client-ip": "158.247.77.182",
+            "x-forwarded-for": "158.247.77.182, 104.23.160.125",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1749234634100141"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "transcript_id": "01JWSEATEEGZWSCW3979JFRMPF"
+          },
+          "webhookUrl": "http://localhost:5678/webhook/transcripts/embed-on-classify",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Text": {
+      "main": [
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Microsoft Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Split Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Transcript": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Embeddings": {
+      "main": [
+        []
+      ]
+    },
+    "Merge Metadata + Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Upsert Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SplitInBatches": {
+      "main": [
+        [
+          {
+            "node": "OpenAIEmbeddings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAIEmbeddings": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata + Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b8d0d3e8-6dad-4371-9165-f3dccb2b95d1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0ddd280bba6afbb32c0d5b532fc75594b5dec87542359ad8e11bf9c766a423e4"
+  },
+  "id": "DdYVZLOocI2mpQwf",
+  "tags": []
+}
